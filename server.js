@@ -12,6 +12,7 @@ const pdfParse = require('pdf-parse');
 const { v4: uuidv4 } = require('uuid');
 const Groq = require('groq-sdk');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 const prompts = require('./prompts');
 
 const app = express();
@@ -101,7 +102,13 @@ function validateSessionId(id) {
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '2mb' })); // Reduced from 10mb
-app.use(express.static('.'));
+app.use(express.static(__dirname));
+
+// Explicitly serve index.html for the root route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.use('/api', generalLimiter); // Apply general rate limit to all API routes
 
 // File upload config with stricter limits
