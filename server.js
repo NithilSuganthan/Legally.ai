@@ -101,15 +101,8 @@ function validateSessionId(id) {
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '2mb' })); // Reduced from 10mb
-app.use(express.static(__dirname));
-
-// Explicitly serve index.html for the root route
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.use('/api', generalLimiter); // Apply general rate limit to all API routes
+app.use(express.json({ limit: '2mb' }));
+app.use('/api', generalLimiter);
 
 // File upload config with stricter limits
 const upload = multer({
