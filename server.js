@@ -20,13 +20,19 @@ const PORT = process.env.PORT || 3000;
 // =====================================================
 // SECURITY: Validate API key exists at startup
 // =====================================================
+let groq = null;
 if (!process.env.GROQ_API_KEY) {
-    console.error('ERROR: GROQ_API_KEY is not set in .env file');
-    process.exit(1);
+    console.warn('WARNING: GROQ_API_KEY is not set. AI features (chat and comparison) will return errors until configured.');
+} else {
+    // Initialize Groq (key stays server-side only)
+    try {
+        groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        console.log('Groq SDK initialized successfully');
+    } catch (err) {
+        console.error('Failed to initialize Groq SDK:', err.message);
+    }
 }
 
-// Initialize Groq (key stays server-side only)
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const MODEL = 'llama-3.1-8b-instant';
 
 // =====================================================
@@ -230,6 +236,14 @@ app.post('/api/chat', chatLimiter, async (req, res) => {
 
         console.log(`Chat Q: "${sanitizedQuestion.substring(0, 60)}..." (doc: ${truncatedDoc.length} chars)`);
 
+        // Check if Groq is initialized
+        if (!groq) {
+            return res.status(500).json({
+                error: 'AI service is not configured. Please ensure GROQ_API_KEY is set in your environment variables.',
+                details: 'Missing GROQ_API_KEY'
+            });
+        }
+
         // Call Groq
         const chatCompletion = await groq.chat.completions.create({
             messages: [
@@ -311,6 +325,14 @@ app.post('/api/compare', generalLimiter, comparisonLimiter, async (req, res) => 
         ${doc2.substring(0, 10000)}
         `;
 
+        // Check if Groq is initialized
+        if (!groq) {
+            return res.status(500).json({
+                error: 'AI service is not configured. Please ensure GROQ_API_KEY is set in your environment variables.',
+                details: 'Missing GROQ_API_KEY'
+            });
+        }
+
         const chatCompletion = await groq.chat.completions.create({
             messages: [{ role: 'user', content: prompt }],
             model: "llama-3.3-70b-versatile",
@@ -330,8 +352,9 @@ app.post('/api/compare', generalLimiter, comparisonLimiter, async (req, res) => 
 // =====================================================
 // HELPERS
 // =====================================================
-app.listen(PORT, () => {
-    console.log(`
+const startServer = () => {
+    app.listen(PORT, () => {
+        console.log(`
 ╔═══════════════════════════════════════════════════════╗
 ║   LEGAL DOCUMENT DECODER                              ║
 ║   Analysis: Client-side (instant)                     ║
@@ -340,7 +363,13 @@ app.listen(PORT, () => {
 ║   http://localhost:${PORT}                               ║
 ║   Security: Rate limiting + input validation ✓        ║
 ╚═══════════════════════════════════════════════════════╝
-    `);
-});
+        `);
+    });
+};
+
+// Only listen when running locally or in standard environments (not required for Vercel/Serverless)
+if (require.main === module) {
+    startServer();
+}
 
 module.exports = app;
